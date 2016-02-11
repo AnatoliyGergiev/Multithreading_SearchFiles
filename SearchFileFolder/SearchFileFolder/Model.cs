@@ -18,57 +18,66 @@ namespace SearchFileFolder
         public bool Subdirectory { get; set; }
         public event EventHandler<EventArgs> SearchFinished;
         public event EventHandler<List<FileInfo>> Found_event;
-        public volatile bool stop_search = false;
-
+        CancellationTokenSource cts;
+        CancellationToken token;
         public Model()
         {
             files = new List<FileInfo>();
         }
-        public void Search()
+        public async void Search()
         {
-            Thread trd = new Thread(() => SearchMethod());
-            trd.Start();
+            cts = new CancellationTokenSource();
+            token = cts.Token;
+            await SearchMethod(token);
         }
-        private void SearchMethod()
+        public void StopSearch()
         {
-            if (files.Count != 0)
-                files.Clear();
-            DirectoryInfo di = new DirectoryInfo(Disk);
-            if (!di.Exists)
+            cts.Cancel();
+            cts.Dispose();
+        }
+        private Task SearchMethod(CancellationToken cts)
+        {
+            return Task.Run(() =>
             {
-                return;
-            }
-            string Mask = File;
-            Mask = Mask.Replace(".", @"\.");
-            Mask = Mask.Replace("?", ".");
-            Mask = Mask.Replace("*", ".*");
-            // Указываем, что требуется найти точное соответствие маске
-            Mask = "^" + Mask + "$";
-
-            Regex regMask = new Regex(Mask, RegexOptions.IgnoreCase);
-
-            if (Phrase != "")
-            {
-                // Экранируем спецсимволы во введенном тексте
-                string Text = Phrase;
-                Text = Regex.Escape(Text);
-                // Создание объекта регулярного выражения
-                // на основе текста
-                Regex regText = Text.Length == 0 ? null : new Regex(Text, RegexOptions.IgnoreCase);
-
-                try
+                if (files.Count != 0)
+                    files.Clear();
+                DirectoryInfo di = new DirectoryInfo(Disk);
+                if (!di.Exists)
                 {
-                    // Вызываем функцию поиска
-                    ulong Count = FindTextInFiles(regText, di, regMask);
+                    SearchFinished(this, null);
                 }
-                catch (Exception ex)
+                string Mask = File;
+                Mask = Mask.Replace(".", @"\.");
+                Mask = Mask.Replace("?", ".");
+                Mask = Mask.Replace("*", ".*");
+                // Указываем, что требуется найти точное соответствие маске
+                Mask = "^" + Mask + "$";
+
+                Regex regMask = new Regex(Mask, RegexOptions.IgnoreCase);
+
+                if (Phrase != "")
                 {
-                    Console.WriteLine(ex.Message);
+                    // Экранируем спецсимволы во введенном тексте
+                    string Text = Phrase;
+                    Text = Regex.Escape(Text);
+                    // Создание объекта регулярного выражения
+                    // на основе текста
+                    Regex regText = Text.Length == 0 ? null : new Regex(Text, RegexOptions.IgnoreCase);
+
+                    try
+                    {
+                        // Вызываем функцию поиска
+                        ulong Count = FindTextInFiles(regText, di, regMask);
+                    }
+                    catch (Exception ex)
+                    {
+                        Console.WriteLine(ex.Message);
+                    }
                 }
-            }
-            else
-                FindFiles(di, regMask);
-            SearchFinished(this,null);
+                else
+                    FindFiles(di, regMask);
+                SearchFinished(this, null);
+            });
             
         }
         private ulong FindFiles(DirectoryInfo di, Regex regMask)
@@ -76,7 +85,7 @@ namespace SearchFileFolder
             List<FileInfo> retfiles = new List<FileInfo>();
             // Количество обработанных файлов
             ulong CountOfMatchFiles = 0;
-            if (stop_search)
+            if (token.IsCancellationRequested)
                 return CountOfMatchFiles;
 
             FileInfo[] fi = null;
@@ -127,7 +136,7 @@ namespace SearchFileFolder
             // Количество обработанных файлов
             ulong CountOfMatchFiles = 0;
 
-            if (stop_search)
+            if (token.IsCancellationRequested)
                 return CountOfMatchFiles;
 
             FileInfo[] fi = null;
