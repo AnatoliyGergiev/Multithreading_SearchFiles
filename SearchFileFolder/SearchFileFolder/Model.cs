@@ -19,15 +19,26 @@ namespace SearchFileFolder
         public event EventHandler<EventArgs> SearchFinished;
         public event EventHandler<List<FileInfo>> Found_event;
         public volatile bool stop_search = false;
-
+        public delegate void MyDelegate();
+        MyDelegate md;
+        IAsyncResult ar;
         public Model()
         {
             files = new List<FileInfo>();
         }
         public void Search()
         {
-            Thread trd = new Thread(() => SearchMethod());
-            trd.Start();
+            md = SearchMethod;
+            ar = md.BeginInvoke(null,null);
+            //while (true)
+            //{
+            //    if (ar.IsCompleted)
+            //    {
+            //        md.EndInvoke(ar);
+            //    }
+            //}
+            //Thread trd = new Thread(() => SearchMethod());
+            //trd.Start();
         }
         private void SearchMethod()
         {
@@ -69,7 +80,7 @@ namespace SearchFileFolder
             else
                 FindFiles(di, regMask);
             SearchFinished(this,null);
-            
+            md.EndInvoke(ar);
         }
         private ulong FindFiles(DirectoryInfo di, Regex regMask)
         {
