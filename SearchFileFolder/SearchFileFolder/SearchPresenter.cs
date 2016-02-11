@@ -63,7 +63,7 @@ namespace SearchFileFolder
         }
         private void OnStop(object sender, EventArgs e)
         {
-            _model.stop_search = true;
+            _model.StopSearch();
         }
         delegate void SetInfoDelegate(int count);
         private void OnFinished(object sender, EventArgs e)
@@ -75,7 +75,6 @@ namespace SearchFileFolder
             }
             else
                 _searchview.setInfoResults(_model.files.Count);
-            _model.stop_search = false;
         }
         
     }

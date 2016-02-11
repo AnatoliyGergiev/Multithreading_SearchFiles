@@ -18,16 +18,25 @@ namespace SearchFileFolder
         public bool Subdirectory { get; set; }
         public event EventHandler<EventArgs> SearchFinished;
         public event EventHandler<List<FileInfo>> Found_event;
-        public volatile bool stop_search = false;
+        Task task1;
+        CancellationTokenSource cancelTokSrc;
+        CancellationToken token;
 
         public Model()
         {
             files = new List<FileInfo>();
         }
+        public void StopSearch()
+        {
+            cancelTokSrc.Cancel();
+            cancelTokSrc.Dispose();
+        }
         public void Search()
         {
-            Thread trd = new Thread(() => SearchMethod());
-            trd.Start();
+            cancelTokSrc = new CancellationTokenSource();
+            token = cancelTokSrc.Token;
+            task1 = new Task(SearchMethod, token);
+            task1.Start();
         }
         private void SearchMethod()
         {
@@ -76,7 +85,7 @@ namespace SearchFileFolder
             List<FileInfo> retfiles = new List<FileInfo>();
             // Количество обработанных файлов
             ulong CountOfMatchFiles = 0;
-            if (stop_search)
+            if (token.IsCancellationRequested)
                 return CountOfMatchFiles;
 
             FileInfo[] fi = null;
@@ -127,7 +136,7 @@ namespace SearchFileFolder
             // Количество обработанных файлов
             ulong CountOfMatchFiles = 0;
 
-            if (stop_search)
+            if (token.IsCancellationRequested)
                 return CountOfMatchFiles;
 
             FileInfo[] fi = null;
